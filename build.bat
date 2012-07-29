@@ -1,1 +1,1 @@
-coffee -c C:\Users\Nicolas\Desktop\Developpement\JS\test\Dofus.coffee\dofus.coffee
+livescript -wc dofus.ls
