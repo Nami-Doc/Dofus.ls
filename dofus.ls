@@ -17,7 +17,7 @@ Dofus.coffee Copyright (C) 2010 NightWolf & Dofus.coffee Team — Tous droits r�
 Créé par NightWolf
 Fork ls par Vendethiel
 */
-const AUTH_ADRESS = "127.0.0.1", AUTH_PORT = 444
+const AUTH_ADDRESS = "127.0.0.1", AUTH_PORT = 444
 
 const DOFUS_VERSION = "1.29.1"
 
@@ -34,7 +34,7 @@ class AuthNetServer
 		@server = net.createServer @onConnection
 
 	start: ->
-		@server.listen AUTH_PORT, AUTH_ADRESS
+		@server.listen AUTH_PORT, AUTH_ADDRESS
 
 	onConnection: (event) ~>
 		console.log 'New input connection on authserver'
@@ -64,7 +64,7 @@ class AuthNetClient
 	onClose: !~>
 		console.log 'Client disconnected'
 
-	handlePacket: !(packet) ->
+	handlePacket: !(packet) ~>
 		if "" is not packet is not "Af"
 			console.log "Received packet <= #packet"
 			switch @state
@@ -72,17 +72,21 @@ class AuthNetClient
 			| 1 => @checkAccount(packet)
 
 
-	checkVersion: -> #Check client version
+	checkVersion: ~> #Check client version
 		if it == DOFUS_VERSION
 			@state = 1
 		else
 			@state = -1
-			@Send "AlEv#DOFUS_VERSION"
+			@send "AlEv#DOFUS_VERSION"
 
-	checkAccount: !-> #Check client account requested
+	checkAccount: !~> #Check client account requested
 		@state = -1
 		[username, password] = it / '#1'
-
+		account = Account.findByUsername username
+		if account.password is password
+			# account is OK
+			console.log 'account ok'
+		else
 
 
 # Client methods

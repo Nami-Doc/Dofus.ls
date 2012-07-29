@@ -18,8 +18,8 @@ Créé par NightWolf
 Fork ls par Vendethiel
 */
 (function(){
-  var AUTH_ADRESS, AUTH_PORT, DOFUS_VERSION, DATABASE_USER, DATABASE_PASSWORD, DATABASE_DB, net, mysql, AuthNetServer, AuthNetClient, Account, Utils, ConnectDatabase, AuthServer, Main, WritePlatformInformations, StartDatabaseServices, StartNetWorkServices, __split = ''.split, __replace = ''.replace;
-  AUTH_ADRESS = "127.0.0.1";
+  var AUTH_ADDRESS, AUTH_PORT, DOFUS_VERSION, DATABASE_USER, DATABASE_PASSWORD, DATABASE_DB, net, mysql, AuthNetServer, AuthNetClient, Account, Utils, ConnectDatabase, AuthServer, Main, WritePlatformInformations, StartDatabaseServices, StartNetWorkServices, __split = ''.split, __replace = ''.replace;
+  AUTH_ADDRESS = "127.0.0.1";
   AUTH_PORT = 444;
   DOFUS_VERSION = "1.29.1";
   DATABASE_USER = "root";
@@ -36,7 +36,7 @@ Fork ls par Vendethiel
       this.server = net.createServer(this.onConnection);
     }
     prototype.start = function(){
-      return this.server.listen(AUTH_PORT, AUTH_ADRESS);
+      return this.server.listen(AUTH_PORT, AUTH_ADDRESS);
     };
     prototype.onConnection = function(event){
       var client;
@@ -80,27 +80,31 @@ Fork ls par Vendethiel
     prototype.handlePacket = function(packet){
       if ("" !== packet && packet !== "Af") {
         console.log("Received packet <= " + packet);
-        switch (this.state) {
+        switch (AuthNetClient.state) {
         case 0:
-          this.checkVersion(packet);
+          AuthNetClient.checkVersion(packet);
           break;
         case 1:
-          this.checkAccount(packet);
+          AuthNetClient.checkAccount(packet);
         }
       }
     };
     prototype.checkVersion = function(it){
       if (it === DOFUS_VERSION) {
-        return this.state = 1;
+        return AuthNetClient.state = 1;
       } else {
-        this.state = -1;
-        return this.Send("AlEv" + DOFUS_VERSION);
+        AuthNetClient.state = -1;
+        return AuthNetClient.send("AlEv" + DOFUS_VERSION);
       }
     };
     prototype.checkAccount = function(it){
-      var username, password, __ref;
-      this.state = -1;
+      var username, password, account, __ref;
+      AuthNetClient.state = -1;
       __ref = __split.call(it, '#1'), username = __ref[0], password = __ref[1];
+      account = Account.findByUsername(username);
+      if (account.password === password) {
+        console.log('account ok');
+      } else {}
     };
     return AuthNetClient;
   }());
