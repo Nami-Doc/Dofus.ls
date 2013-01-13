@@ -24,84 +24,83 @@ const DOFUS_VERSION = "1.29.1"
 const DATABASE_USER = "root", DATABASE_PASSWORD = "", DATABASE_DB = "arkalia_realm"
 
 
-net = require 'net'
-mysql = require 'mysql-native' .createTCPClient!
+require! {net, mysql: 'mysql-native'createTCPClient!}
 
 
 # Network class
 class AuthNetServer
 	(@ip, @port) ->
-		@server = net.createServer @onConnection
+		@server = net.createServer @on-connection
 
 	start: ->
 		@server.listen AUTH_PORT, AUTH_ADDRESS
 
-	onConnection: (event) ~>
+	on-connection: (event) ~>
 		console.log 'New input connection on authserver'
 		event.pipe event
 		client = new AuthNetClient event
 
 class AuthNetClient
 	state: 0
+
+	state-handlers:
+		"Version"
+		"Account"
+
 	(@socket) ->
 		@encryptKey = Utils.GenerateString 32
 		@send "HC#{@encryptKey}"
 		
-		with @socket.on
-			@ 'close' @onClose
-			@ 'data' @onReceiveData
-			@ 'error' !-> console.log "error : #it"
+		@socket
+			..on 'close' @on-close
+			..on 'data' @on-receive-data
+			..on 'error' !-> console.log "error : #it"
 
 	send: !->
 		console.log "Send packet #it"
 		@socket.write "#it\x00"
 
-	onReceiveData: !(event) ~>
+	on-receive-data: !(event) ~>
 		data = Utils.CleanPacket event.toString!
 
 		[@handlePacket x for x in data]
 
-	onClose: !~>
+	on-close: !~>
 		console.log 'Client disconnected'
 
-	handlePacket: !(packet) ~>
-		if "" is not packet is not "Af"
-			console.log "Received packet <= #packet"
-			switch @state
-			| 0 => @checkVersion packet
-			| 1 => @checkAccount(packet)
+	handle-packet: !(packet) ~>
+		return if packet in ["" "Af"]
+
+		console.log "Received packet #packet"
+		@[state-handlers[@state]] packet
 
 
 	checkVersion: ~> #Check client version
-		if it == DOFUS_VERSION
+		if it is DOFUS_VERSION
 			@state = 1
-		else
+		else #required version
 			@state = -1
 			@send "AlEv#DOFUS_VERSION"
 
 	checkAccount: !~> #Check client account requested
 		@state = -1
 		[username, password] = it / '#1'
-		account = Account.findByUsername username
-		if account.password is password
+		@account <- Account.findByUsername username
+		if @account.password is password
 			# account is OK
-			console.log 'account ok'
-		else
+			console.log "account ok - logged with id #{@account.id}"
+		else ...
 
 
 # Client methods
-class Account
-	id: -1
-	username: ""
-	password: ""
-	@byId = []
-	@byUsername
-	
+class Account	
 	({@id, @username, @password}) ->
 	
-	GetMd5Password: (cipher) ->
+	getMd5Password: (cipher) ->
 	
 	@findBy = (prop, value, callback) -->
+		if @["by#prop"]?[value] then return that
+
 		account = null
 		
 		query = "SELECT * FROM accounts WHERE #prop=?"
@@ -109,7 +108,7 @@ class Account
 			account = new Account it
 			
 			callback? account
-			[Account["by#prop"][account[prop]] = account for prop in <[Id Username]>]
+			[@[]["by#prop"][account[prop]] = account for prop in <[Id Username]>]
 
 	@findByUsername = @findBy 'Username'
 
@@ -120,10 +119,8 @@ class Utils
 	@RandNumber = (min, max) ->
 		min + Math.floor Math.random! * (max - min + 1)
 
-	@GenerateString = (lenght) ->
-		rndStr = ""
-		[rndStr += Utils.Hash.charAt Utils.RandNumber 0 25 for i from 1 to lenght]
-		rndStr
+	@GenerateString = (length) ->
+		[@Hash.charAt @RandNumber 0 25 for to length-1] * ''
 
 	@CleanPacket = (packet) ->
 		(packet - "\x0a" - "\n") / "\x00"
@@ -135,7 +132,7 @@ class Utils
 ConnectDatabase = ->
 	mysql.auto_prepare = true
 	mysql.auth DATABASE_DB, DATABASE_USER, DATABASE_PASSWORD
-	console.log('Connected to database !')
+	console.log 'Connected to database !'
 
 
 
@@ -143,17 +140,17 @@ ConnectDatabase = ->
 # Start Program Methods
 AuthServer = null
 
-Main = ->
+!function Main
 	WritePlatformInformations!
 	StartDatabaseServices!
 	StartNetWorkServices!
 	Account.findByUsername 'test'
 
 WritePlatformInformations = ->
-	console.log("Your node.js details:")
-	console.log("Version: " + process.version)
-	console.log("Platform: " + process.platform)
-	console.log("Architecture: " + process.arch)
+	console.log "Your node.js details:"
+	console.log "Version: #{process.version}"
+	console.log "Platform: #{process.platform}"
+	console.log "Architecture: #{process.arch}"
 
 StartDatabaseServices = ->
 	console.log 'Starting database services ...'
@@ -162,8 +159,8 @@ StartDatabaseServices = ->
 
 
 StartNetWorkServices = ->
-	console.log('Starting network services ...')
-	AuthServer = new AuthNetServer(AUTH_ADRESS, AUTH_PORT)
+	console.log 'Starting network services ...'
+	AuthServer = new AuthNetServer AUTH_ADRESS, AUTH_PORT
 	AuthServer.start!
 
-Main()#Need to start emulator
+Main! #Need to start emulator
