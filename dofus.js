@@ -18,7 +18,7 @@ Créé par NightWolf
 Fork ls par Vendethiel
 */
 (function(){
-  var AUTH_ADDRESS, AUTH_PORT, DOFUS_VERSION, DATABASE_USER, DATABASE_PASSWORD, DATABASE_DB, net, mysql, AuthNetServer, AuthNetClient, Account, Utils, ConnectDatabase, AuthServer, Main, WritePlatformInformations, StartDatabaseServices, StartNetWorkServices, __split = ''.split, __replace = ''.replace;
+  var AUTH_ADDRESS, AUTH_PORT, DOFUS_VERSION, DATABASE_USER, DATABASE_PASSWORD, DATABASE_DB, net, mysql, AuthNetServer, AuthNetClient, Account, Utils, ConnectDatabase, AuthServer, WritePlatformInformations, StartDatabaseServices, StartNetWorkServices, split$ = ''.split, replace$ = ''.replace;
   AUTH_ADDRESS = "127.0.0.1";
   AUTH_PORT = 444;
   DOFUS_VERSION = "1.29.1";
@@ -33,6 +33,7 @@ Fork ls par Vendethiel
     function AuthNetServer(ip, port){
       this.ip = ip;
       this.port = port;
+      this.onConnection = bind$(this, 'onConnection', prototype);
       this.server = net.createServer(this.onConnection);
     }
     prototype.start = function(){
@@ -50,89 +51,92 @@ Fork ls par Vendethiel
     AuthNetClient.displayName = 'AuthNetClient';
     var prototype = AuthNetClient.prototype, constructor = AuthNetClient;
     prototype.state = 0;
+    prototype.stateHandlers = ["Version", "Account"];
     function AuthNetClient(socket){
+      var x$;
       this.socket = socket;
+      this.checkAccount = bind$(this, 'checkAccount', prototype);
+      this.checkVersion = bind$(this, 'checkVersion', prototype);
+      this.handlePacket = bind$(this, 'handlePacket', prototype);
+      this.onClose = bind$(this, 'onClose', prototype);
+      this.onReceiveData = bind$(this, 'onReceiveData', prototype);
       this.encryptKey = Utils.GenerateString(32);
       this.send("HC" + this.encryptKey);
-      (function(){
-        this('close', this.onClose);
-        this('data', this.onReceiveData);
-        this('error', function(it){
-          console.log("error : " + it);
-        });
-      }.call(this.socket.on));
+      x$ = this.socket;
+      x$.on('close', this.onClose);
+      x$.on('data', this.onReceiveData);
+      x$.on('error', function(it){
+        console.log("error : " + it);
+      });
     }
     prototype.send = function(it){
       console.log("Send packet " + it);
       this.socket.write(it + "\x00");
     };
     prototype.onReceiveData = function(event){
-      var data, x, __i, __len;
+      var data, i$, len$, x;
       data = Utils.CleanPacket(event.toString());
-      for (__i = 0, __len = data.length; __i < __len; ++__i) {
-        x = data[__i];
-        AuthNetClient.handlePacket(x);
+      for (i$ = 0, len$ = data.length; i$ < len$; ++i$) {
+        x = data[i$];
+        this.handlePacket(x);
       }
     };
     prototype.onClose = function(){
       console.log('Client disconnected');
     };
     prototype.handlePacket = function(packet){
-      if ("" !== packet && packet !== "Af") {
-        console.log("Received packet <= " + packet);
-        switch (AuthNetClient.state) {
-        case 0:
-          AuthNetClient.checkVersion(packet);
-          break;
-        case 1:
-          AuthNetClient.checkAccount(packet);
-        }
+      if (packet == "" || packet == "Af") {
+        return;
       }
+      console.log("Received packet " + packet);
+      this[stateHandlers[this.state]](packet);
     };
     prototype.checkVersion = function(it){
       if (it === DOFUS_VERSION) {
-        return AuthNetClient.state = 1;
+        return this.state = 1;
       } else {
-        AuthNetClient.state = -1;
-        return AuthNetClient.send("AlEv" + DOFUS_VERSION);
+        this.state = -1;
+        return this.send("AlEv" + DOFUS_VERSION);
       }
     };
     prototype.checkAccount = function(it){
-      var username, password, account, __ref;
-      AuthNetClient.state = -1;
-      __ref = __split.call(it, '#1'), username = __ref[0], password = __ref[1];
-      account = Account.findByUsername(username);
-      if (account.password === password) {
-        console.log('account ok');
-      } else {}
+      var ref$, username, password;
+      this.state = -1;
+      ref$ = split$.call(it, '#1'), username = ref$[0], password = ref$[1];
+      Account.findByUsername(username, function(account){
+        this.account = account;
+        if (this.account.password === password) {
+          return console.log("account ok - logged with id " + this.account.id);
+        } else {
+          throw Error('unimplemented');
+        }
+      });
     };
     return AuthNetClient;
   }());
   Account = (function(){
     Account.displayName = 'Account';
     var prototype = Account.prototype, constructor = Account;
-    prototype.id = -1;
-    prototype.username = "";
-    prototype.password = "";
-    Account.byId = [];
-    Account.byUsername;
-    function Account(__arg){
-      this.id = __arg.id, this.username = __arg.username, this.password = __arg.password;
+    function Account(arg$){
+      this.id = arg$.id, this.username = arg$.username, this.password = arg$.password;
     }
-    prototype.GetMd5Password = function(cipher){};
-    Account.findBy = __curry(function(prop, value, callback){
-      var account, query;
+    prototype.getMd5Password = function(cipher){};
+    Account.findBy = curry$(function(prop, value, callback){
+      var that, ref$, account, query;
+      if (that = (ref$ = this["by" + prop]) != null ? ref$[value] : void 8) {
+        return that;
+      }
       account = null;
       query = "SELECT * FROM accounts WHERE " + prop + "=?";
       return mysql.execute(query, [value]).addListener('row', function(it){
-        var account, prop, __i, __ref, __len;
+        var account, i$, ref$, len$, prop, key$;
         account = new Account(it);
         if (typeof callback === 'function') {
           callback(account);
         }
-        for (__i = 0, __len = (__ref = ['Id', 'Username']).length; __i < __len; ++__i) {
-          prop = __ref[__i];
-          Account["by" + prop][account[prop]] = account;
+        for (i$ = 0, len$ = (ref$ = ['Id', 'Username']).length; i$ < len$; ++i$) {
+          prop = ref$[i$];
+          (this[key$ = "by" + prop] || (this[key$] = []))[account[prop]] = account;
         }
       });
     });
@@ -146,16 +150,17 @@ Fork ls par Vendethiel
     Utils.RandNumber = function(min, max){
       return min + Math.floor(Math.random() * (max - min + 1));
     };
-    Utils.GenerateString = function(lenght){
-      var rndStr, i;
-      rndStr = "";
-      for (i = 1; i <= lenght; ++i) {
-        rndStr += Utils.Hash.charAt(Utils.RandNumber(0, 25));
-      }
-      return rndStr;
+    Utils.GenerateString = function(length){
+      return (function(){
+        var i$, to$, results$ = [];
+        for (i$ = 0, to$ = length - 1; i$ <= to$; ++i$) {
+          results$.push(this.Hash.charAt(this.RandNumber(0, 25)));
+        }
+        return results$;
+      }.call(this)).join('');
     };
     Utils.CleanPacket = function(packet){
-      return (__replace.call(packet, "\x0a", '').replace("\n", '')).split("\x00");
+      return (replace$.call(packet, "\x0a", '').replace("\n", '')).split("\x00");
     };
     function Utils(){}
     return Utils;
@@ -166,12 +171,12 @@ Fork ls par Vendethiel
     return console.log('Connected to database !');
   };
   AuthServer = null;
-  Main = function(){
+  function Main(){
     WritePlatformInformations();
     StartDatabaseServices();
     StartNetWorkServices();
-    return Account.findByUsername('test');
-  };
+    Account.findByUsername('test');
+  }
   WritePlatformInformations = function(){
     console.log("Your node.js details:");
     console.log("Version: " + process.version);
@@ -189,11 +194,20 @@ Fork ls par Vendethiel
     return AuthServer.start();
   };
   Main();
-  function __curry(f, args){
-    return f.length > 1 ? function(){
-      var params = args ? args.concat() : [];
-      return params.push.apply(params, arguments) < f.length && arguments.length ?
-        __curry.call(this, f, params) : f.apply(this, params);
-    } : f;
+  function bind$(obj, key, target){
+    return function(){ return (target || obj)[key].apply(obj, arguments) };
+  }
+  function curry$(f, bound){
+    var context,
+    _curry = function(args) {
+      return f.length > 1 ? function(){
+        var params = args ? args.concat() : [];
+        context = bound ? context || this : this;
+        return params.push.apply(params, arguments) <
+            f.length && arguments.length ?
+          _curry.call(context, params) : f.apply(context, params);
+      } : f;
+    };
+    return _curry();
   }
 }).call(this);
